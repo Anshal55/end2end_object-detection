@@ -5,6 +5,12 @@
 #include <algorithm>
 #include <vector>
 
+/**
+ * Calculates the Intersection over Union (IoU) between two bounding boxes.
+ * @param a The first bounding box.
+ * @param b The second bounding box.
+ * @return The IoU value between the two bounding boxes.
+ */
 float IoU(const BoundingBox &a, const BoundingBox &b) {
   float xmin = std::max(a.xmin, b.xmin);
   float ymin = std::max(a.ymin, b.ymin);
@@ -19,6 +25,12 @@ float IoU(const BoundingBox &a, const BoundingBox &b) {
   return intersection / (area_a + area_b - intersection);
 }
 
+/**
+ * Performs Non-Maximum Suppression (NMS) on a vector of bounding boxes.
+ * @param boxes The vector of bounding boxes to perform NMS on.
+ * @param iou_threshold The IoU threshold for overlapping bounding boxes.
+ * @return The selected bounding boxes after NMS.
+ */
 std::vector<BoundingBox>
 NonMaximumSuppression(const std::vector<BoundingBox> &boxes,
                       float iou_threshold) {

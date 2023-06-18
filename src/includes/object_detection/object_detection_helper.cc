@@ -1,7 +1,7 @@
 #include "src/includes/object_detection/object_detection_helper.h"
 
 ObjectDetectionHelper::ObjectDetectionHelper() {
-
+  // Load the object detection model
   od_model = tflite::FlatBufferModel::BuildFromFile(
       "src/includes/object_detection/models/main_model_ssd_mobilenet.tflite");
 
@@ -9,14 +9,14 @@ ObjectDetectionHelper::ObjectDetectionHelper() {
     LOG(FATAL) << "Failed to load classifier model";
   }
 
-  // Build the interpreter_
+  // Build the interpreter
   tflite::InterpreterBuilder builder(*od_model, resolver);
   builder(&interpreter_);
   if (!interpreter_) {
-    LOG(FATAL) << "Failed to construct interpreter_";
+    LOG(FATAL) << "Failed to construct interpreter";
   }
 
-  // Allocate tensor buffers.
+  // Allocate tensor buffers
   if (interpreter_->AllocateTensors() != kTfLiteOk) {
     LOG(FATAL) << "Failed to allocate tensors";
   }
@@ -30,12 +30,11 @@ ObjectDetectionHelper::ObjectDetectionHelper() {
   output_index = interpreter_->outputs()[0];
   output_dims = interpreter_->tensor(output_index)->dims;
 
-  LOG(INFO)
-      << "****************** Object Detector laoded and and Interpreter built. "
-         "******************";
+  LOG(INFO) << "Object Detector loaded and Interpreter built.";
 }
 
 ObjectDetectionHelper::~ObjectDetectionHelper() {
+  // Destructor: Close the ObjectDetectionHelper
   LOG(INFO) << "Closing ObjectDetectionHelper";
 }
 
@@ -43,17 +42,21 @@ void ObjectDetectionHelper::UpdateTensor(cv::Mat &input_image) {
   // Fill input buffer with data
   float *input_data = interpreter_->typed_tensor<float>(input_index);
 
-  // copy data to tensor
+  // Copy data to tensor
   memcpy(input_data, input_image.data,
          sizeof(float) * input_image.total() * input_image.channels());
 }
 
+/**
+ * Runs the inference using the loaded object detection model.
+ * @return true if inference is successful, false otherwise.
+ */
 const bool ObjectDetectionHelper::RunInference() {
+  // Run inference
   LOG(INFO) << "Inference Runner Called.";
 
   auto start_time_infer = std::chrono::high_resolution_clock::now();
 
-  // Run inference
   if (interpreter_->Invoke() != kTfLiteOk) {
     LOG(FATAL) << "Failed to invoke tflite!";
     return false;
@@ -65,15 +68,20 @@ const bool ObjectDetectionHelper::RunInference() {
                                                             start_time_infer)
           .count();
 
-  LOG(INFO) << "Object Detection taken per inference = " << elapsed_time_infer
+  LOG(INFO) << "Object Detection time per inference = " << elapsed_time_infer
             << " ms";
 
   return true;
 }
 
+/**
+ * Gathers bounding boxes from the output of the object detection model.
+ * @param confidence_threshold The confidence threshold for selecting bounding
+ * boxes.
+ * @return A vector of BoundingBox objects representing the detected objects.
+ */
 std::vector<BoundingBox>
 ObjectDetectionHelper::GatherBoundingBoxes(float confidence_threshold) {
-  //! Deal with the outputs and return a bounding box
   // Get number of outputs
   int output_count = interpreter_->outputs().size();
 
@@ -81,7 +89,7 @@ ObjectDetectionHelper::GatherBoundingBoxes(float confidence_threshold) {
   float *output_data = interpreter_->typed_output_tensor<float>(2);
   int count = static_cast<int>(*output_data);
 
-  // intermediate outputs
+  // Intermediate outputs
   std::vector<float> confidence_scores;
   std::vector<std::vector<float>> bbs;
 
@@ -110,9 +118,8 @@ ObjectDetectionHelper::GatherBoundingBoxes(float confidence_threshold) {
   // Final output declaration
   std::vector<BoundingBox> bounding_boxes;
 
-  // fill the final output based on the confidence threshold score
+  // Fill the final output based on the confidence threshold score
   for (int i = 0; i < count; ++i) {
-
     if (confidence_scores.at(i) < confidence_threshold)
       continue;
 

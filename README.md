@@ -96,10 +96,6 @@ This repo (bazel workspace) makes sure that these dependencies are properly inst
 │   ├── BUILD
 │   └── opencv_linux.BUILD
 └── WORKSPACE
-
-8 directories, 26 files
-
-4 directories, 12 files
 ```
 
 - [tf_infer.cc](src/app/tf_infer/tf_infer.cc):
@@ -145,7 +141,7 @@ docker start -i <container-name>
 ```
 
 3. Start running the program.
-- To run the program first give permission to the executabel script.
+- To run the program first give permission to the executable script.
 ```sh
 chmod +x ./run_obdet.sh
 ```

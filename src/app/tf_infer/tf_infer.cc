@@ -24,13 +24,22 @@ int main(int argc, const char **argv) {
   // Define ClassifierHelper
   ClassifierHelper classifier;
 
-  // Open webcam
-  cv::VideoCapture cap(0);
-  cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-  cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-  cap.set(cv::CAP_PROP_FPS, 30);
+  cv::VideoCapture cap;
+
+  if (argc > 1 && std::string(argv[1]) == "rtsp") {
+    // Open RTSP stream
+    std::string rtsp_url = "rtsp://admin:admin@192.168.0.100:1935";
+    cap.open(rtsp_url);
+  } else {
+    // Open webcam
+    cap.open(0);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(cv::CAP_PROP_FPS, 30);
+  }
+
   if (!cap.isOpened()) {
-    LOG(FATAL) << "Failed to open webcam";
+    LOG(FATAL) << "Failed to open video source";
   }
 
   // Initialize FPS calculation

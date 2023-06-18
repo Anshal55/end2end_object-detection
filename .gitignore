@@ -1,8 +1,3 @@
-bazel-bin
-bazel-cpp_build_env
-bazel-out
-bazel-testlogs
-core
-.vscode/*
-bazel-end2end_object-detection
-bazel-objdet_bazel
+*.h5
+*.tflite
+*.jpg

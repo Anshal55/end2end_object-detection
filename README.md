@@ -95,7 +95,6 @@ This repo (bazel workspace) makes sure that these dependencies are properly inst
 ├── third_party
 │   ├── BUILD
 │   └── opencv_linux.BUILD
-├── tree.txt
 └── WORKSPACE
 
 8 directories, 26 files

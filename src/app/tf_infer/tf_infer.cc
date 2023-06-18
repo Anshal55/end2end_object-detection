@@ -28,7 +28,7 @@ int main(int argc, const char **argv) {
 
   if (argc > 1 && std::string(argv[1]) == "rtsp") {
     // Open RTSP stream
-    std::string rtsp_url = "rtsp://admin:admin@192.168.0.100:1935";
+    std::string rtsp_url = argv[2];
     cap.open(rtsp_url);
   } else {
     // Open webcam

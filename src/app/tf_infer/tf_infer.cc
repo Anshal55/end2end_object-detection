@@ -1,41 +1,45 @@
 #include <chrono>
-#include <iostream>
 #include <vector>
 
-// GLOG
-#include "glog/logging.h"
-#include "glog/stl_logging.h"
-
-// opencv dependencies
-#include <opencv2/core.hpp>
-#include <opencv2/opencv.hpp>
-
-// tflite dependencies
-#include "tensorflow/lite/interpreter.h"
-#include "tensorflow/lite/kernels/register.h"
-#include "tensorflow/lite/model.h"
-
+#include "src/includes/image/image_helper.h"
 #include "src/includes/object_detection/bounding_box.h"
 #include "src/includes/object_detection/classifier_helper.h"
 #include "src/includes/object_detection/non_max_supression.h"
 #include "src/includes/object_detection/object_detection_helper.h"
 
+/**
+ * Main Function that initializes the camera and performs
+ * Object detection and Classification on it.
+ */
 int main(int argc, const char **argv) {
+  // Initialize logging
   google::InitGoogleLogging(argv[0]);
 
-  // Define object detection helper
+  // Initialize ImageHelper
+  ImageHelper img_helper;
+
+  // Define ObjectDetectionHelper
   ObjectDetectionHelper object_detector;
 
-  // Define classifier helper
+  // Define ClassifierHelper
   ClassifierHelper classifier;
 
-  // Open webcam
-  cv::VideoCapture cap(0);
-  cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-  cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-  cap.set(cv::CAP_PROP_FPS, 30);
+  cv::VideoCapture cap;
+
+  if (argc > 1 && std::string(argv[1]) == "rtsp") {
+    // Open RTSP stream
+    std::string rtsp_url = argv[2];
+    cap.open(rtsp_url);
+  } else {
+    // Open webcam
+    cap.open(0);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(cv::CAP_PROP_FPS, 30);
+  }
+
   if (!cap.isOpened()) {
-    LOG(FATAL) << "Failed to open webcam";
+    LOG(FATAL) << "Failed to open video source";
   }
 
   // Initialize FPS calculation
@@ -44,9 +48,6 @@ int main(int argc, const char **argv) {
 
   // Create matrices to hold the converted and resized images
   cv::Mat rgb_image;
-  cv::Mat img_tensor;
-
-  // Read frame from webcam
   cv::Mat bgr_image;
 
   while (true) {
@@ -56,21 +57,10 @@ int main(int argc, const char **argv) {
       return 1;
     }
 
-    // Convert image from BGR to RGB color space
-    cv::cvtColor(bgr_image, rgb_image, cv::COLOR_BGR2RGB);
+    // Pre-process image for Object Detection
+    auto img_tensor = img_helper.PreProcessImages(bgr_image, rgb_image, 416);
 
-    // Resize the image to (416, 416)
-    cv::resize(rgb_image, rgb_image, cv::Size(416, 416));
-    // cv::resize(rgb_image, rgb_image, cv::Size(300, 300));
-
-    // Convert the image to a tensor of shape (416, 416, 3)
-    std::vector<cv::Mat> channels;
-    cv::split(rgb_image, channels);
-    cv::merge(channels, img_tensor);
-    img_tensor.convertTo(img_tensor, CV_32FC3);
-    img_tensor /= 255.0;
-
-    // note: Inference for Object detection here
+    // Perform Object Detection inference
     object_detector.UpdateTensor(img_tensor);
     bool has_detected = object_detector.RunInference();
 
@@ -78,14 +68,16 @@ int main(int argc, const char **argv) {
       continue;
     }
 
+    // Gather bounding boxes from the detected objects
     auto bounding_boxes = object_detector.GatherBoundingBoxes(0.4);
     LOG(INFO) << "Number of detections = " << bounding_boxes.size();
 
-    // Apply Non Max supression
+    // Apply Non-Maximum Suppression
     auto filtered_bbs = NonMaximumSuppression(bounding_boxes, 0.5);
+    LOG(INFO) << "After Non-Maximum Suppression = " << filtered_bbs.size();
 
-    LOG(INFO) << "After NonMaxSupression = " << filtered_bbs.size();
-
+    // Iterate over the filtered bounding boxes and draw them if classifier
+    // predictions are true
     for (const auto &bb : filtered_bbs) {
       // Get detection data
       float score = bb.confidence;
@@ -100,29 +92,17 @@ int main(int argc, const char **argv) {
       int x2 = static_cast<int>(xmax * bgr_image.cols);
       int y2 = static_cast<int>(ymax * bgr_image.rows);
 
-      // note: Add the classifier model here to verify the output
+      // Update classifier with the region of interest
       classifier.UpdateTensor(bgr_image, x1, y1, x2, y2);
       bool is_hand = classifier.RunInference();
 
-      LOG(INFO) << "Is it a Hand = " << is_hand;
+      LOG(INFO) << "Is it a Hand? = " << is_hand;
 
       if (!is_hand)
         continue;
 
-      // Draw bounding box on the bgr_image
-      cv::rectangle(bgr_image, cv::Point(x1, y1), cv::Point(x2, y2),
-                    cv::Scalar(0, 255, 0), 2);
-
-      // Draw label on the bgr_image
-      std::string label_text = "Score: " + std::to_string(score);
-      int baseline;
-      cv::Size label_size = cv::getTextSize(
-          label_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
-      cv::rectangle(
-          bgr_image, cv::Point(x1, y1 - label_size.height - baseline - 10),
-          cv::Point(x1 + label_size.width, y1), cv::Scalar(255, 255, 255), -1);
-      cv::putText(bgr_image, label_text, cv::Point(x1, y1 - baseline - 5),
-                  cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+      // Draw bounding box
+      img_helper.DrawOnBBs(bgr_image, x1, y1, x2, y2, score);
     }
 
     // Calculate FPS
@@ -134,22 +114,13 @@ int main(int argc, const char **argv) {
                           1000.0;
     double fps = frame_count / elapsed_time;
 
-    // Draw FPS on the image
-    std::string fps_text = "FPS: " + std::to_string((int)fps);
-    int baseline;
-    cv::Size fps_size =
-        cv::getTextSize(fps_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseline);
-    cv::rectangle(
-        bgr_image, cv::Point(10, 10),
-        cv::Point(10 + fps_size.width, 10 + fps_size.height + baseline),
-        cv::Scalar(255, 255, 255), -1);
-    cv::putText(bgr_image, fps_text, cv::Point(10, 10 + fps_size.height),
-                cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+    // Draw the FPS
+    img_helper.DrawFps(bgr_image, fps);
 
     // Show the bgr_image
     cv::imshow("Detections", bgr_image);
 
-    // Check if the user pressed the 'q' key
+    // Check if the user pressed the 'q' key to quit
     if (cv::waitKey(1) == 'q') {
       break;
     }

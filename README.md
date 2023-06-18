@@ -165,7 +165,7 @@ chmod +x ./run_obdet.sh
 <br>
 
 ## 5. Sample Output
-<video src="./demo/obj-det-demo.mp4" controls>
+<video src="https://github.com/Anshal55/end2end_object-detection/blob/improvements/demo/obj-det-demo.mp4" controls>
   Your browser does not support the video tag.
 </video>
 

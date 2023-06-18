@@ -122,7 +122,7 @@ This C++ source file defines the implementation of an object detection helper cl
 This C++ source file defines the implementation of a classifier helper class. It loads a classifier model, builds an interpreter, updates the input tensor with a cropped and resized image region, performs inference, and returns true if the classification score is above a specified threshold, and false otherwise.
 
 ## 4. Running the Program
-To run this program, a docker image with all the dependencies installed and a read to run envioronment is provided.
+To run this program, a docker image with all the dependencies installed and a ready to run envioronment is provided.
 
 1. Clone the repository
 ```sh
